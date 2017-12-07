@@ -221,6 +221,9 @@ if sys.argv[1]=='train':
             # And save regularly
             if step % save_steps == 0:
                 saver.save(sess, checkpoint_path)
+                f = open('stats', 'a')
+                f.write(str(step)+' '+str(mean_max_q)+'\n')
+                f.close()
 
 
 elif sys.argv[1]=='play':
