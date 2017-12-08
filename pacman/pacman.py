@@ -154,8 +154,11 @@ mean_max_q = 0.0
 
 
 
-
-
+# Pacman environment revisited
+lives = 3  #it gets resetted immediately when game is done
+reward_game_over = -200   #game over penalty
+reward_game_win  = 200    #game won reward
+reward_max = 15           #max reward for a non-winning action
 
 if sys.argv[1]=='train':
     #Training
@@ -175,7 +178,8 @@ if sys.argv[1]=='train':
                 iteration, step, n_steps, step * 100 / n_steps, loss_val, mean_max_q), end="")
             if done: # game over, start again
                 obs = env.reset()
-                for skip in range(skip_start): # skip the start of each game
+                lives = env.step(0)[3]['ale.lives']   # starting lives = info['ale.lives']
+                for skip in range(skip_start-1): # skip the start of each game
                     obs, reward, done, info = env.step(0)
                 state = preprocess_observation(obs)
 
@@ -185,6 +189,14 @@ if sys.argv[1]=='train':
 
             # Online DQN plays
             obs, reward, done, info = env.step(action)
+            # Changed rewards
+            if reward > 10:     # eating a ghost gives too much points
+                reward = reward_max
+            if info['ale.lives'] < lives:
+                reward = reward_game_over
+                lives = info['ale.lives']
+            if done and info['ale.lives'] > 0:
+                reward = reward_game_win
             next_state = preprocess_observation(obs)
 
             # Let's memorize what happened
@@ -224,6 +236,9 @@ if sys.argv[1]=='train':
                 f = open('stats', 'a')
                 f.write(str(step)+' '+str(mean_max_q)+'\n')
                 f.close()
+                f = open('loss', 'a')
+                f.write(str(step)+' '+str(loss_val)+'\n')
+                f.close()
 
 
 elif sys.argv[1]=='play':
@@ -237,10 +252,11 @@ elif sys.argv[1]=='play':
                 q_values = online_q_values.eval(feed_dict={X_state: [preprocess_observation(obs)]})
                 action = np.argmax(q_values)
                 obs, reward, done, info = env.step(action)
-                #env.render()  #rendering slows down
+                env.render()  #rendering slows down
                 if done:
                     break
                 score += reward
+                #print(str(max(q_values))+' '+str(reward))
         return score
     s = []
     for _ in range(5):
