@@ -139,7 +139,7 @@ training_start = 10000  # start training after 10,000 game iterations
 training_interval = 4  # run a training step every 4 game iterations
 save_steps = 1000  # save the model every 1,000 training steps
 copy_steps = 10000  # copy online DQN to target DQN every 10,000 training steps
-discount_rate = 0.99
+discount_rate = 0.95
 skip_start = 90  # Skip the start of every game (it's just waiting time).
 batch_size = 50
 iteration = 0  # game iterations
@@ -156,9 +156,10 @@ mean_max_q = 0.0
 
 # Pacman environment revisited
 lives = 3  #it gets resetted immediately when game is done
-reward_game_over = -200   #game over penalty
-reward_game_win  = 200    #game won reward
-reward_max = 15           #max reward for a non-winning action
+reward_game_over = -500   #game over penalty
+reward_game_win  = 500    #game won reward
+reward_max = 10           #max reward for a non-winning action
+skip_game_over_frames = 15
 
 if sys.argv[1]=='train':
     #Training
@@ -171,7 +172,7 @@ if sys.argv[1]=='train':
             copy_online_to_target.run()
         while True:
             step = global_step.eval()
-            if step >= n_steps:
+            if step > n_steps:
                 break
             iteration += 1
             print("\rIteration {}\tTraining step {}/{} ({:.1f})%\tLoss {:5f}\tMean Max-Q {:5f}   ".format(
@@ -189,15 +190,19 @@ if sys.argv[1]=='train':
 
             # Online DQN plays
             obs, reward, done, info = env.step(action)
+            next_state = preprocess_observation(obs)
             # Changed rewards
             if reward > 10:     # eating a ghost gives too much points
                 reward = reward_max
             if info['ale.lives'] < lives:
+                for _ in range(skip_game_over_frames):
+                    replay_memory.pop()
                 reward = reward_game_over
+                state = replay_memory[-1][0]
+                action = replay_memory[-1][1]
                 lives = info['ale.lives']
             if done and info['ale.lives'] > 0:
                 reward = reward_game_win
-            next_state = preprocess_observation(obs)
 
             # Let's memorize what happened
             replay_memory.append((state, action, reward, next_state, 1.0 - done))
